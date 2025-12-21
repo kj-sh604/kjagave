@@ -1,5 +1,5 @@
 pkgname=kjagave-git
-pkgver=r4.1aecac2
+pkgver=r5.285fc5d
 pkgrel=1
 pkgdesc="a color picker inspired by agave, but only with the features that kj_sh604 used"
 arch=('x86_64')
@@ -32,9 +32,10 @@ build() {
 }
 
 package() {
-  install -Dm755 "${srcdir}/kjagave/src/kjagave" "${pkgdir}/usr/bin/kjagave"
-  install -Dm644 "kjagave.desktop" "${pkgdir}/usr/share/applications/kjagave.desktop"
-  install -Dm644 "kjagave.png" "${pkgdir}/usr/share/pixmaps/kjagave.png"
+  cd "${srcdir}/kjagave"
+  install -Dm755 "src/kjagave" "${pkgdir}/usr/bin/kjagave"
+  install -Dm644 "archlinux/kjagave.desktop" "${pkgdir}/usr/share/applications/kjagave.desktop"
+  install -Dm644 "archlinux/kjagave.png" "${pkgdir}/usr/share/pixmaps/kjagave.png"
   install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/kjagave/LICENSE"
   install -Dm644 README.md "${pkgdir}/usr/share/doc/kjagave/README.md"
 }
