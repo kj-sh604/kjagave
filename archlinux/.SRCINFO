@@ -1,6 +1,6 @@
 pkgbase = kjagave-git
 	pkgdesc = a color picker inspired by agave, but only with the features that kj_sh604 used
-	pkgver = r4.1aecac2
+	pkgver = r7.260042d
 	pkgrel = 1
 	url = https://github.com/kj-sh604/kjagave
 	arch = x86_64

@@ -1,5 +1,5 @@
 pkgname=kjagave-git
-pkgver=r5.285fc5d
+pkgver=r7.260042d
 pkgrel=1
 pkgdesc="a color picker inspired by agave, but only with the features that kj_sh604 used"
 arch=('x86_64')
