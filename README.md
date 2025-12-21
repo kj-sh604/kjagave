@@ -19,6 +19,7 @@ a color picker inspired by agave, but only with the features I actually used
 
 - go 1.21 or higher
 - gtk3 development libraries
+- `gotk3` go bindings
 - `xcolor`
 
 ## installation
@@ -37,7 +38,8 @@ see `archlinux/README.md` for more details.
 ```sh
 cd src
 go mod download
-go build -o ../kjagave main.go
+go mod download github.com/gotk3/gotk3
+go build -o kjagave main.go
 ```
 
 ## running

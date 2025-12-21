@@ -342,8 +342,9 @@ func (app *App) onAboutClicked() {
 	dialog.SetProgramName(appTitle)
 	dialog.SetVersion(appVersion)
 	dialog.SetComments("a color picker inspired by agave, but only with the features kj_sh604 actually used")
-	dialog.SetAuthors([]string{"kjagave 2025", "kj_sh604"})
-	dialog.SetLicense("0BSD")
+	dialog.SetAuthors([]string{"kj_sh604"})
+	dialog.SetLicense("BSD Zero Clause License (0-clause BSD)")
+	dialog.SetLogoIconName("applications-graphics")
 	dialog.Run()
 	dialog.Destroy()
 }
