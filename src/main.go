@@ -16,7 +16,7 @@ import (
 
 const (
 	appTitle   = "kjagave"
-	appVersion = "1.0"
+	appVersion = "20251221-0050"
 )
 
 type SavedColor struct {
