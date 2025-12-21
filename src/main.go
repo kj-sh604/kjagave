@@ -341,9 +341,9 @@ func (app *App) onAboutClicked() {
 	dialog.SetTransientFor(app.window)
 	dialog.SetProgramName(appTitle)
 	dialog.SetVersion(appVersion)
-	dialog.SetComments("A color picker with screen color grabbing support")
-	dialog.SetAuthors([]string{"kjagave 2025", "Based on gcolor2 by Ned Haughton"})
-	dialog.SetLicense("GPL-2.0")
+	dialog.SetComments("a color picker inspired by agave, but only with the features kj_sh604 actually used")
+	dialog.SetAuthors([]string{"kjagave 2025", "kj_sh604"})
+	dialog.SetLicense("0BSD")
 	dialog.Run()
 	dialog.Destroy()
 }
