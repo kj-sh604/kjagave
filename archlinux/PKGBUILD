@@ -6,8 +6,7 @@ arch=('x86_64')
 url="https://github.com/kj-sh604/kjagave"
 license=('GPL2')
 depends=('gtk3')
-optdepends=('xcolor: for screen color picking'
-            'grabc: alternative for screen color picking')
+optdepends=('xcolor: for screen color picking')
 makedepends=('go' 'git')
 provides=('kjagave')
 conflicts=('kjagave')

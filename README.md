@@ -19,7 +19,7 @@ a color picker inspired by agave, but only with the features I actually used
 
 - go 1.21 or higher
 - gtk3 development libraries
-- `xcolor` or `grabc` for screen color picking
+- `xcolor`
 
 ## installation
 
