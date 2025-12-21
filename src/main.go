@@ -358,7 +358,7 @@ func (app *App) pickColorFromScreen() (*gdk.RGBA, error) {
 		output, err = cmd.Output()
 		if err != nil {
 			dialog := gtk.MessageDialogNew(app.window, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR,
-				gtk.BUTTONS_OK, "Color picker not found. Please install 'xcolor')
+				gtk.BUTTONS_OK, "Color picker not found. Please install 'xcolor'")
 			dialog.Run()
 			dialog.Destroy()
 			return nil, err
