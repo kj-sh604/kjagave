@@ -1,3 +1,5 @@
+![kjagave logo](./archlinux/kjagave.png)
+
 # kjagave 
 
 a color picker inspired by agave, but only with the features I actually used
@@ -19,17 +21,26 @@ a color picker inspired by agave, but only with the features I actually used
 - gtk3 development libraries
 - `xcolor` or `grabc` for screen color picking
 
-## building
+## installation
+
+### arch linux
+
+```bash
+cd archlinux
+makepkg -si
+```
+
+see `archlinux/README.md` for more details.
+
+### manual build
 
 ```sh
 cd src
 go mod download
-go build -o ./kjagave main.go
+go build -o ../kjagave main.go
 ```
 
 ## running
-
-from the src/ directory:
 
 ```bash
 ./kjagave
