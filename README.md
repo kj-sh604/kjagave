@@ -4,6 +4,9 @@
 
 a color picker inspired by agave, but only with the features I actually used
 
+<img width="554" height="467" alt="recent screenshot" src="https://github.com/user-attachments/assets/efbea3f0-9d1f-45b1-865b-bb82a3ddc443" /><br>
+
+
 ![screenshot of kjagave](./pics/readme-greeter.png)
 
 ## features
