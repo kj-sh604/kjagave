@@ -2,7 +2,7 @@
 
 # kjagave 
 
-a color picker inspired by agave, but only with the features I actually used
+a GTK3 color scheme generator inspired by classic Agave, rewritten in Go
 
 <img width="554" height="467" alt="recent screenshot" src="https://github.com/user-attachments/assets/efbea3f0-9d1f-45b1-865b-bb82a3ddc443" /><br>
 
@@ -11,19 +11,48 @@ a color picker inspired by agave, but only with the features I actually used
 
 ## features
 
-- visual color picker with rgb/hsv sliders
-- **pick colors from anywhere on screen (only on x11 because I'm lazy)**
-- alpha channel support
-- save and manage favorite colors
-- copy hex color codes to clipboard
-- clean, minimal interface
+- agave-style scheme generator modes:
+	- triads
+	- complements
+	- split complements
+	- tetrads
+	- analogous
+	- monochromatic
+- compact top swatch cards with centered overlay metadata:
+	- hex
+	- rgb
+	- hsv
+- dynamic overlay text contrast (light/dark text based on background luminance)
+- toolbar actions: back, forward, random, lighten, darken, saturate, desaturate, paste
+- click a top swatch to promote it to the active base color
+- right-click on top swatches and palette swatches to copy:
+	- hex
+	- hsv
+	- rgb
+- 12 built-in palettes:
+	- Web-safe (legacy)
+	- Material Design
+	- Tailwind CSS
+	- Flat UI
+	- Pastel
+	- Nord
+	- Dracula
+	- Solarized
+	- Gruvbox
+	- One Dark
+	- Monokai
+	- KiJiSH Dark Pastel Terminal
+- favorites panel with add/remove/rename/clear
+- clipboard copy/paste support
+- screen picker support on X11 via `xcolor` or `grabc`
+- persisted state in `~/.config/kjagave.json` (last color, scheme, palette, favorites)
 
 ## requirements
 
 - go 1.21 or higher
 - gtk3 development libraries
-- `gotk3` go bindings
-- `xcolor`
+- `gotk3` Go bindings
+- optional for pick-from-screen: `xcolor` or `grabc`
 
 ## installation
 
@@ -34,15 +63,11 @@ cd archlinux
 makepkg -si
 ```
 
-see `archlinux/README.md` for more details.
-
 ### manual build
 
 ```sh
 cd src
-go mod download
-go mod download github.com/gotk3/gotk3
-go build -o kjagave main.go
+go build -o kjagave .
 ```
 
 ## running
@@ -53,12 +78,8 @@ go build -o kjagave main.go
 
 ## usage
 
-1. use the color picker button to open the full color selection dialog
-2. **click "Pick from Screen" to grab a color from anywhere on your screen** - your cursor will change to a crosshair, click on any pixel to select its color
-3. click "Copy to Clipboard" to copy the hex color code
-4. click "Save..." to save the current color to your favorites list
-5. expand "Saved Colors" to view and manage your saved colors
-6. select a saved color to load it in the picker
-7. click "Delete" to remove a selected saved color
-
-saved colors are stored in `~/.config/kjagave.json` as json.
+1. pick a base color with the color button, hex entry, palette swatches, or screen picker
+2. choose a scheme type
+3. click a preview swatch to make it the active base color
+4. right-click a swatch to copy hex/hsv/rgb
+5. use favorites controls (`+`, `-`, rename, clear) to manage saved colors
