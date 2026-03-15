@@ -2,10 +2,7 @@
 
 # kjagave 
 
-a GTK3 color scheme generator inspired by classic Agave, rewritten in Go
-
-<img width="554" height="467" alt="recent screenshot" src="https://github.com/user-attachments/assets/efbea3f0-9d1f-45b1-865b-bb82a3ddc443" /><br>
-
+GoLang rewrite of Agave (legacy colorscheme designer tool for GNOME2) with a modern GTK3 interface and additional features.
 
 ![screenshot of kjagave](./pics/readme-greeter.png)
 
