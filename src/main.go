@@ -22,6 +22,8 @@ const (
 	appTitle      = "kjagave"
 	appVersion    = "20260315-0200"
 	maxHistoryLen = 250
+	cardImageW    = 150
+	cardImageH    = 98
 )
 
 type SavedColor struct {
@@ -45,6 +47,7 @@ type SwatchCard struct {
 
 type App struct {
 	window *gtk.Window
+	css    *gtk.CssProvider
 
 	colorButton  *gtk.ColorButton
 	hexEntry     *gtk.Entry
@@ -60,11 +63,12 @@ type App struct {
 
 	swatchCards []SwatchCard
 
-	paletteStore *gtk.ListStore
-	paletteView  *gtk.TreeView
+	paletteGrid   *gtk.Grid
+	paletteScroll *gtk.ScrolledWindow
 
 	favoritesStore *gtk.ListStore
 	favoritesView  *gtk.TreeView
+	renameFavBtn   *gtk.Button
 	removeFavBtn   *gtk.Button
 	clearFavBtn    *gtk.Button
 	selectedIter   *gtk.TreeIter
@@ -114,7 +118,7 @@ func main() {
 	app.createUI()
 	app.refreshFavoritesView()
 	app.restoreStartupState()
-	app.populatePaletteList()
+	app.populatePaletteGrid()
 	app.updateSchemePreview()
 	app.updateActionStates()
 
@@ -128,58 +132,71 @@ func (app *App) createUI() {
 		log.Fatal("Unable to create window:", err)
 	}
 	app.window.SetTitle(appTitle)
-	app.window.SetDefaultSize(980, 680)
+	app.window.SetDefaultSize(640, 480)
 	app.window.Connect("destroy", func() {
 		app.saveConfig()
 		gtk.MainQuit()
 	})
 
-	root, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
-	root.SetMarginTop(8)
-	root.SetMarginBottom(8)
-	root.SetMarginStart(8)
-	root.SetMarginEnd(8)
+	root, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 2)
+	root.SetMarginTop(2)
+	root.SetMarginBottom(2)
+	root.SetMarginStart(2)
+	root.SetMarginEnd(2)
 
-	toolbar, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 4)
+	menuBar := app.buildMenuBar()
+	root.PackStart(menuBar, false, false, 0)
+	app.initCompactButtonCSS()
+
+	toolbar, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 3)
 	app.historyBackBtn, _ = gtk.ButtonNewWithLabel("Back")
+	app.setButtonIcon(app.historyBackBtn, "go-previous")
 	app.historyBackBtn.Connect("clicked", func() { app.navigateHistory(-1) })
 	toolbar.PackStart(app.historyBackBtn, false, false, 0)
 
 	app.historyFwdBtn, _ = gtk.ButtonNewWithLabel("Forward")
+	app.setButtonIcon(app.historyFwdBtn, "go-next")
 	app.historyFwdBtn.Connect("clicked", func() { app.navigateHistory(1) })
 	toolbar.PackStart(app.historyFwdBtn, false, false, 0)
 
 	randomBtn, _ := gtk.ButtonNewWithLabel("Random")
+	app.setButtonIcon(randomBtn, "view-refresh")
 	randomBtn.Connect("clicked", func() { app.randomizeColor() })
 	toolbar.PackStart(randomBtn, false, false, 0)
 
 	app.lightenBtn, _ = gtk.ButtonNewWithLabel("Lighten")
+	app.setButtonIcon(app.lightenBtn, "go-up")
 	app.lightenBtn.Connect("clicked", func() { app.adjustSV(0, 5) })
 	toolbar.PackStart(app.lightenBtn, false, false, 0)
 
 	app.darkenBtn, _ = gtk.ButtonNewWithLabel("Darken")
+	app.setButtonIcon(app.darkenBtn, "go-down")
 	app.darkenBtn.Connect("clicked", func() { app.adjustSV(0, -5) })
 	toolbar.PackStart(app.darkenBtn, false, false, 0)
 
 	app.saturateBtn, _ = gtk.ButtonNewWithLabel("Saturate")
+	app.setButtonIcon(app.saturateBtn, "list-add")
 	app.saturateBtn.Connect("clicked", func() { app.adjustSV(5, 0) })
 	toolbar.PackStart(app.saturateBtn, false, false, 0)
 
 	app.desaturateBtn, _ = gtk.ButtonNewWithLabel("Desaturate")
+	app.setButtonIcon(app.desaturateBtn, "list-remove")
 	app.desaturateBtn.Connect("clicked", func() { app.adjustSV(-5, 0) })
 	toolbar.PackStart(app.desaturateBtn, false, false, 0)
 
 	pasteBtn, _ := gtk.ButtonNewWithLabel("Paste")
+	app.setButtonIcon(pasteBtn, "edit-paste")
 	pasteBtn.Connect("clicked", func() { app.pasteColorFromClipboard() })
 	toolbar.PackStart(pasteBtn, false, false, 0)
 
 	aboutBtn, _ := gtk.ButtonNewWithLabel("About")
+	app.setButtonIcon(aboutBtn, "help-about")
 	aboutBtn.Connect("clicked", func() { app.onAboutClicked() })
 	toolbar.PackStart(aboutBtn, false, false, 0)
 
 	root.PackStart(toolbar, false, false, 0)
 
-	schemeRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
+	schemeRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 4)
 	app.swatchCards = make([]SwatchCard, 0, 4)
 	for i := 0; i < 4; i++ {
 		card := app.newSwatchCard()
@@ -200,7 +217,7 @@ func (app *App) createUI() {
 	}
 	root.PackStart(schemeRow, false, false, 0)
 
-	controlRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
+	controlRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
 	app.currentColor = gdk.NewRGBA()
 	app.currentColor.Parse("#0066FF")
 
@@ -234,11 +251,8 @@ func (app *App) createUI() {
 	app.hexEntry.Connect("activate", func() { app.applyHexEntry() })
 	controlRow.PackStart(app.hexEntry, false, false, 0)
 
-	useHexBtn, _ := gtk.ButtonNewWithLabel("Use")
-	useHexBtn.Connect("clicked", func() { app.applyHexEntry() })
-	controlRow.PackStart(useHexBtn, false, false, 0)
-
 	pickBtn, _ := gtk.ButtonNewWithLabel("Pick from Screen")
+	app.setButtonIcon(pickBtn, "color-select")
 	pickBtn.Connect("clicked", func() {
 		clr, err := app.pickColorFromScreen()
 		if err == nil {
@@ -248,6 +262,7 @@ func (app *App) createUI() {
 	controlRow.PackStart(pickBtn, false, false, 0)
 
 	copyBtn, _ := gtk.ButtonNewWithLabel("Copy")
+	app.setButtonIcon(copyBtn, "edit-copy")
 	copyBtn.Connect("clicked", func() {
 		clipboard, _ := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
 		clipboard.SetText(app.currentHex)
@@ -256,14 +271,23 @@ func (app *App) createUI() {
 
 	root.PackStart(controlRow, false, false, 0)
 
-	lower, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
+	lower, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
 
 	paletteFrame, _ := gtk.FrameNew("Palette")
 	paletteBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
-	paletteBox.SetMarginTop(8)
-	paletteBox.SetMarginBottom(8)
-	paletteBox.SetMarginStart(8)
-	paletteBox.SetMarginEnd(8)
+	paletteBox.SetMarginTop(5)
+	paletteBox.SetMarginBottom(5)
+	paletteBox.SetMarginStart(5)
+	paletteBox.SetMarginEnd(5)
+
+	app.paletteScroll, _ = gtk.ScrolledWindowNew(nil, nil)
+	app.paletteScroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+	app.paletteScroll.SetSizeRequest(430, 150)
+	app.paletteGrid, _ = gtk.GridNew()
+	app.paletteGrid.SetRowSpacing(0)
+	app.paletteGrid.SetColumnSpacing(0)
+	app.paletteScroll.Add(app.paletteGrid)
+	paletteBox.PackStart(app.paletteScroll, true, true, 0)
 
 	app.paletteCombo, _ = gtk.ComboBoxTextNew()
 	for _, name := range paletteNames {
@@ -271,45 +295,23 @@ func (app *App) createUI() {
 	}
 	app.paletteCombo.SetActive(0)
 	app.paletteCombo.Connect("changed", func() {
-		app.populatePaletteList()
+		app.populatePaletteGrid()
 		app.saveConfig()
 	})
 	paletteBox.PackStart(app.paletteCombo, false, false, 0)
-
-	paletteScroll, _ := gtk.ScrolledWindowNew(nil, nil)
-	paletteScroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-	paletteScroll.SetSizeRequest(430, 260)
-
-	app.paletteStore, _ = gtk.ListStoreNew(gdk.PixbufGetType(), glib.TYPE_STRING)
-	app.paletteView, _ = gtk.TreeViewNew()
-	app.paletteView.SetModel(app.paletteStore)
-	app.paletteView.SetHeadersVisible(false)
-	paletteCol, _ := gtk.TreeViewColumnNew()
-	palettePix, _ := gtk.CellRendererPixbufNew()
-	paletteCol.PackStart(palettePix, false)
-	paletteCol.AddAttribute(palettePix, "pixbuf", 0)
-	paletteText, _ := gtk.CellRendererTextNew()
-	paletteCol.PackStart(paletteText, true)
-	paletteCol.AddAttribute(paletteText, "text", 1)
-	app.paletteView.AppendColumn(paletteCol)
-	palSel, _ := app.paletteView.GetSelection()
-	palSel.SetMode(gtk.SELECTION_SINGLE)
-	palSel.Connect("changed", app.onPaletteSelectionChanged)
-	paletteScroll.Add(app.paletteView)
-	paletteBox.PackStart(paletteScroll, true, true, 0)
 	paletteFrame.Add(paletteBox)
 	lower.PackStart(paletteFrame, true, true, 0)
 
 	favFrame, _ := gtk.FrameNew("Favorites")
 	favBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
-	favBox.SetMarginTop(8)
-	favBox.SetMarginBottom(8)
-	favBox.SetMarginStart(8)
-	favBox.SetMarginEnd(8)
+	favBox.SetMarginTop(5)
+	favBox.SetMarginBottom(5)
+	favBox.SetMarginStart(5)
+	favBox.SetMarginEnd(5)
 
 	favScroll, _ := gtk.ScrolledWindowNew(nil, nil)
 	favScroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-	favScroll.SetSizeRequest(260, 260)
+	favScroll.SetSizeRequest(230, 180)
 
 	app.favoritesStore, _ = gtk.ListStoreNew(gdk.PixbufGetType(), glib.TYPE_STRING, glib.TYPE_STRING)
 	app.favoritesView, _ = gtk.TreeViewNew()
@@ -332,30 +334,37 @@ func (app *App) createUI() {
 	favSel, _ := app.favoritesView.GetSelection()
 	favSel.SetMode(gtk.SELECTION_SINGLE)
 	favSel.Connect("changed", app.onFavoriteSelectionChanged)
+	app.favoritesView.Connect("row-activated", func() {
+		app.renameSelectedFavorite()
+	})
 
 	favScroll.Add(app.favoritesView)
 	favBox.PackStart(favScroll, true, true, 0)
 
 	favBtns, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 4)
 	addFavBtn, _ := gtk.ButtonNewWithLabel("+")
+	app.setButtonIcon(addFavBtn, "list-add")
 	addFavBtn.Connect("clicked", func() { app.addCurrentToFavorites() })
 	favBtns.PackStart(addFavBtn, true, true, 0)
 
 	app.removeFavBtn, _ = gtk.ButtonNewWithLabel("-")
+	app.setButtonIcon(app.removeFavBtn, "list-remove")
 	app.removeFavBtn.Connect("clicked", func() { app.removeSelectedFavorite() })
 	favBtns.PackStart(app.removeFavBtn, true, true, 0)
 
+	app.renameFavBtn, _ = gtk.ButtonNewWithLabel("Rename")
+	app.setButtonIcon(app.renameFavBtn, "document-edit")
+	app.renameFavBtn.Connect("clicked", func() { app.renameSelectedFavorite() })
+	favBtns.PackStart(app.renameFavBtn, true, true, 0)
+
 	app.clearFavBtn, _ = gtk.ButtonNewWithLabel("Clear")
+	app.setButtonIcon(app.clearFavBtn, "edit-clear")
 	app.clearFavBtn.Connect("clicked", func() {
 		app.savedColors = nil
 		app.refreshFavoritesView()
 		app.saveConfig()
 	})
 	favBtns.PackStart(app.clearFavBtn, true, true, 0)
-
-	exportBtn, _ := gtk.ButtonNewWithLabel("Export GPL")
-	exportBtn.Connect("clicked", func() { app.exportFavoritesGPLToDefaultPath() })
-	favBtns.PackStart(exportBtn, true, true, 0)
 
 	favBox.PackStart(favBtns, false, false, 0)
 	favFrame.Add(favBox)
@@ -371,18 +380,83 @@ func (app *App) createUI() {
 	app.window.ShowAll()
 }
 
+func (app *App) buildMenuBar() *gtk.MenuBar {
+	menuBar, _ := gtk.MenuBarNew()
+
+	fileTop, _ := gtk.MenuItemNewWithLabel("File")
+	fileMenu, _ := gtk.MenuNew()
+	random, _ := gtk.MenuItemNewWithLabel("Random")
+	random.Connect("activate", func() { app.randomizeColor() })
+	fileMenu.Append(random)
+	quit, _ := gtk.MenuItemNewWithLabel("Quit")
+	quit.Connect("activate", func() {
+		app.saveConfig()
+		gtk.MainQuit()
+	})
+	fileMenu.Append(quit)
+	fileTop.SetSubmenu(fileMenu)
+	menuBar.Append(fileTop)
+
+	editTop, _ := gtk.MenuItemNewWithLabel("Edit")
+	editMenu, _ := gtk.MenuNew()
+	paste, _ := gtk.MenuItemNewWithLabel("Paste")
+	paste.Connect("activate", func() { app.pasteColorFromClipboard() })
+	editMenu.Append(paste)
+	editTop.SetSubmenu(editMenu)
+	menuBar.Append(editTop)
+
+	favTop, _ := gtk.MenuItemNewWithLabel("Favorites")
+	favMenu, _ := gtk.MenuNew()
+	add, _ := gtk.MenuItemNewWithLabel("Add Current")
+	add.Connect("activate", func() { app.addCurrentToFavorites() })
+	favMenu.Append(add)
+	rename, _ := gtk.MenuItemNewWithLabel("Rename Selected")
+	rename.Connect("activate", func() { app.renameSelectedFavorite() })
+	favMenu.Append(rename)
+	favTop.SetSubmenu(favMenu)
+	menuBar.Append(favTop)
+
+	helpTop, _ := gtk.MenuItemNewWithLabel("Help")
+	helpMenu, _ := gtk.MenuNew()
+	about, _ := gtk.MenuItemNewWithLabel("About")
+	about.Connect("activate", func() { app.onAboutClicked() })
+	helpMenu.Append(about)
+	helpTop.SetSubmenu(helpMenu)
+	menuBar.Append(helpTop)
+
+	return menuBar
+}
+
+func (app *App) initCompactButtonCSS() {
+	app.css, _ = gtk.CssProviderNew()
+	css := "button { padding: 1px 4px; min-height: 0; min-width: 0; } .palette-swatch { padding: 0; border-width: 0; border-radius: 0; }"
+	_ = app.css.LoadFromData(css)
+	if screen, err := gdk.ScreenGetDefault(); err == nil && screen != nil {
+		gtk.AddProviderForScreen(screen, app.css, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+	}
+}
+
+func (app *App) setButtonIcon(btn *gtk.Button, iconName string) {
+	img, err := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+	if err != nil || img == nil {
+		return
+	}
+	btn.SetImage(img)
+	btn.SetAlwaysShowImage(true)
+}
+
 func (app *App) newSwatchCard() SwatchCard {
 	button, _ := gtk.ButtonNew()
-	button.SetSizeRequest(220, 240)
+	button.SetSizeRequest(170, 185)
 
 	vbox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 4)
-	vbox.SetMarginTop(8)
-	vbox.SetMarginBottom(8)
-	vbox.SetMarginStart(8)
-	vbox.SetMarginEnd(8)
+	vbox.SetMarginTop(4)
+	vbox.SetMarginBottom(4)
+	vbox.SetMarginStart(4)
+	vbox.SetMarginEnd(4)
 
 	image, _ := gtk.ImageNew()
-	image.SetFromPixbuf(solidPixbuf("#000000", 220, 150))
+	image.SetFromPixbuf(solidPixbuf("#000000", cardImageW, cardImageH))
 	vbox.PackStart(image, false, false, 0)
 
 	label, _ := gtk.LabelNew("")
@@ -421,17 +495,19 @@ func (app *App) updateSchemePreview() {
 	colors := generateScheme(app.currentColor, app.activeSchemeName())
 	for i := 0; i < len(app.swatchCards); i++ {
 		if i >= len(colors) {
+			app.swatchCards[i].hex = ""
 			app.swatchCards[i].button.Hide()
 			continue
 		}
 		app.swatchCards[i].button.Show()
+		app.swatchCards[i].button.SetSensitive(true)
 		hex := rgbaToHex(colors[i])
 		h, s, v := rgbToHSV(colors[i])
 		r := int(math.Round(colors[i].GetRed() * 255))
 		g := int(math.Round(colors[i].GetGreen() * 255))
 		b := int(math.Round(colors[i].GetBlue() * 255))
 		app.swatchCards[i].hex = hex
-		app.swatchCards[i].image.SetFromPixbuf(solidPixbuf(hex, 220, 150))
+		app.swatchCards[i].image.SetFromPixbuf(solidPixbuf(hex, cardImageW, cardImageH))
 		app.swatchCards[i].label.SetText(fmt.Sprintf("%s\nrgb(%d, %d, %d)\nhsv(%d, %d, %d)", hex, r, g, b, int(h), int(s), int(v)))
 	}
 }
@@ -530,6 +606,7 @@ func (app *App) updateActionStates() {
 	app.darkenBtn.SetSensitive(v > 5)
 	app.saturateBtn.SetSensitive(s < 100)
 	app.desaturateBtn.SetSensitive(s > 5)
+	app.renameFavBtn.SetSensitive(app.selectedIter != nil)
 	app.removeFavBtn.SetSensitive(app.selectedIter != nil)
 	app.clearFavBtn.SetSensitive(len(app.savedColors) > 0)
 }
@@ -550,19 +627,6 @@ func (app *App) activePaletteName() string {
 	return paletteNames[idx]
 }
 
-func (app *App) onPaletteSelectionChanged(selection *gtk.TreeSelection) {
-	model, iter, ok := selection.GetSelected()
-	if !ok {
-		return
-	}
-	value, _ := model.ToTreeModel().GetValue(iter, 1)
-	hex, _ := value.GetString()
-	rgba := gdk.NewRGBA()
-	if rgba.Parse(hex) {
-		app.setCurrentColor(rgba, true)
-	}
-}
-
 func (app *App) onFavoriteSelectionChanged(selection *gtk.TreeSelection) {
 	model, iter, ok := selection.GetSelected()
 	if !ok {
@@ -580,12 +644,37 @@ func (app *App) onFavoriteSelectionChanged(selection *gtk.TreeSelection) {
 	app.updateActionStates()
 }
 
-func (app *App) populatePaletteList() {
-	app.paletteStore.Clear()
-	for _, hex := range paletteByName(app.activePaletteName()) {
-		iter := app.paletteStore.Append()
-		app.paletteStore.Set(iter, []int{0, 1}, []interface{}{solidPixbuf(hex, 36, 14), hex})
+func (app *App) populatePaletteGrid() {
+	for {
+		child, err := app.paletteGrid.GetChildAt(0, 0)
+		if err != nil || child == nil {
+			break
+		}
+		app.paletteGrid.Remove(child)
 	}
+
+	colors := paletteByName(app.activePaletteName())
+	cols := 24
+	for i, hex := range colors {
+		btn, _ := gtk.ButtonNew()
+		btn.SetRelief(gtk.RELIEF_NONE)
+		btn.SetCanFocus(false)
+		btn.SetSizeRequest(16, 11)
+		if ctx, err := btn.GetStyleContext(); err == nil {
+			ctx.AddClass("palette-swatch")
+		}
+		img, _ := gtk.ImageNewFromPixbuf(solidPixbuf(hex, 16, 11))
+		btn.Add(img)
+		h := hex
+		btn.Connect("clicked", func() {
+			rgba := gdk.NewRGBA()
+			if rgba.Parse(h) {
+				app.setCurrentColor(rgba, true)
+			}
+		})
+		app.paletteGrid.Attach(btn, i%cols, i/cols, 1, 1)
+	}
+	app.paletteGrid.ShowAll()
 }
 
 func (app *App) addCurrentToFavorites() {
@@ -616,6 +705,54 @@ func (app *App) removeSelectedFavorite() {
 	app.saveConfig()
 }
 
+func (app *App) renameSelectedFavorite() {
+	if app.selectedIter == nil {
+		return
+	}
+	vHex, _ := app.favoritesStore.GetValue(app.selectedIter, 1)
+	hex, _ := vHex.GetString()
+	vName, _ := app.favoritesStore.GetValue(app.selectedIter, 2)
+	currentName, _ := vName.GetString()
+
+	dialog, _ := gtk.DialogNew()
+	dialog.SetTitle("Rename Color")
+	dialog.SetTransientFor(app.window)
+	dialog.SetModal(true)
+	box, _ := dialog.GetContentArea()
+	box.SetMarginTop(10)
+	box.SetMarginBottom(10)
+	box.SetMarginStart(10)
+	box.SetMarginEnd(10)
+	box.SetSpacing(6)
+	label, _ := gtk.LabelNew("Enter a new name:")
+	label.SetHAlign(gtk.ALIGN_START)
+	box.PackStart(label, false, false, 0)
+	entry, _ := gtk.EntryNew()
+	entry.SetText(currentName)
+	entry.SetActivatesDefault(true)
+	box.PackStart(entry, false, false, 0)
+	dialog.AddButton("Cancel", gtk.RESPONSE_CANCEL)
+	okBtn, _ := dialog.AddButton("OK", gtk.RESPONSE_OK)
+	okBtn.SetCanDefault(true)
+	okBtn.GrabDefault()
+	dialog.ShowAll()
+	if dialog.Run() == gtk.RESPONSE_OK {
+		newName, _ := entry.GetText()
+		newName = strings.TrimSpace(newName)
+		if newName != "" {
+			for i := range app.savedColors {
+				if strings.EqualFold(app.savedColors[i].Hex, hex) {
+					app.savedColors[i].Name = newName
+					break
+				}
+			}
+			app.refreshFavoritesView()
+			app.saveConfig()
+		}
+	}
+	dialog.Destroy()
+}
+
 func (app *App) refreshFavoritesView() {
 	app.favoritesStore.Clear()
 	for _, color := range app.savedColors {
@@ -623,19 +760,6 @@ func (app *App) refreshFavoritesView() {
 		app.favoritesStore.Set(iter, []int{0, 1, 2}, []interface{}{solidPixbuf(color.Hex, 16, 14), strings.ToUpper(color.Hex), color.Name})
 	}
 	app.updateActionStates()
-}
-
-func (app *App) exportFavoritesGPLToDefaultPath() {
-	if len(app.savedColors) == 0 {
-		return
-	}
-	outPath := filepath.Join(filepath.Dir(app.configFile), "kjagave-favorites.gpl")
-	lines := []string{"GIMP Palette", "Name: kjagave Favorites", "#"}
-	for _, item := range app.savedColors {
-		r, g, b := hexToRGB(item.Hex)
-		lines = append(lines, fmt.Sprintf("%3d %3d %3d\t%s", r, g, b, item.Name))
-	}
-	_ = os.WriteFile(outPath, []byte(strings.Join(lines, "\n")+"\n"), 0644)
 }
 
 func (app *App) onAboutClicked() {
@@ -924,19 +1048,6 @@ func rgbaToHex(rgba *gdk.RGBA) string {
 	g := int(math.Round(rgba.GetGreen() * 255))
 	b := int(math.Round(rgba.GetBlue() * 255))
 	return fmt.Sprintf("#%02X%02X%02X", r, g, b)
-}
-
-func hexToRGB(hex string) (int, int, int) {
-	text := strings.TrimPrefix(strings.TrimSpace(hex), "#")
-	if len(text) != 6 {
-		return 0, 0, 0
-	}
-	var r, g, b int
-	_, err := fmt.Sscanf(text, "%02x%02x%02x", &r, &g, &b)
-	if err != nil {
-		return 0, 0, 0
-	}
-	return r, g, b
 }
 
 func wrapHue(h float64) float64 {
