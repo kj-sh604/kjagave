@@ -22,8 +22,8 @@ const (
 	appTitle      = "kjagave"
 	appVersion    = "20260315-0200"
 	maxHistoryLen = 250
-	cardImageW    = 150
-	cardImageH    = 98
+	cardImageW    = 160
+	cardImageH    = 132
 )
 
 type SavedColor struct {
@@ -43,6 +43,8 @@ type SwatchCard struct {
 	image  *gtk.Image
 	label  *gtk.Label
 	hex    string
+	rgb    string
+	hsv    string
 }
 
 type App struct {
@@ -97,9 +99,18 @@ var schemeNames = []string{
 }
 
 var paletteNames = []string{
-	"Web-safe colors",
-	"Tango",
-	"Visibone Core",
+	"Web-safe (legacy)",
+	"Material Design",
+	"Tailwind CSS",
+	"Flat UI",
+	"Pastel",
+	"Nord",
+	"Dracula",
+	"Solarized",
+	"Gruvbox",
+	"One Dark",
+	"Monokai",
+	"KiJiSH Dark Pastel Terminal",
 }
 
 func main() {
@@ -196,11 +207,22 @@ func (app *App) createUI() {
 
 	root.PackStart(toolbar, false, false, 0)
 
-	schemeRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 4)
+	schemeRow, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 2)
 	app.swatchCards = make([]SwatchCard, 0, 4)
 	for i := 0; i < 4; i++ {
 		card := app.newSwatchCard()
 		cardIdx := i
+		card.button.Connect("button-press-event", func(_ *gtk.Button, ev *gdk.Event) bool {
+			if ev == nil {
+				return false
+			}
+			evBtn := gdk.EventButtonNewFromEvent(ev)
+			if evBtn == nil || evBtn.Button() != 3 {
+				return false
+			}
+			app.showSwatchContextMenu(cardIdx, ev)
+			return true
+		})
 		card.button.Connect("clicked", func() {
 			hex := app.swatchCards[cardIdx].hex
 			if hex == "" {
@@ -271,14 +293,14 @@ func (app *App) createUI() {
 
 	root.PackStart(controlRow, false, false, 0)
 
-	lower, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 6)
+	lower, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 4)
 
 	paletteFrame, _ := gtk.FrameNew("Palette")
-	paletteBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
-	paletteBox.SetMarginTop(5)
-	paletteBox.SetMarginBottom(5)
-	paletteBox.SetMarginStart(5)
-	paletteBox.SetMarginEnd(5)
+	paletteBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 2)
+	paletteBox.SetMarginTop(2)
+	paletteBox.SetMarginBottom(2)
+	paletteBox.SetMarginStart(2)
+	paletteBox.SetMarginEnd(2)
 
 	app.paletteScroll, _ = gtk.ScrolledWindowNew(nil, nil)
 	app.paletteScroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -303,11 +325,11 @@ func (app *App) createUI() {
 	lower.PackStart(paletteFrame, true, true, 0)
 
 	favFrame, _ := gtk.FrameNew("Favorites")
-	favBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 6)
-	favBox.SetMarginTop(5)
-	favBox.SetMarginBottom(5)
-	favBox.SetMarginStart(5)
-	favBox.SetMarginEnd(5)
+	favBox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 2)
+	favBox.SetMarginTop(2)
+	favBox.SetMarginBottom(2)
+	favBox.SetMarginStart(2)
+	favBox.SetMarginEnd(2)
 
 	favScroll, _ := gtk.ScrolledWindowNew(nil, nil)
 	favScroll.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -429,7 +451,7 @@ func (app *App) buildMenuBar() *gtk.MenuBar {
 
 func (app *App) initCompactButtonCSS() {
 	app.css, _ = gtk.CssProviderNew()
-	css := "button { padding: 1px 4px; min-height: 0; min-width: 0; } .palette-swatch { padding: 0; border-width: 0; border-radius: 0; }"
+	css := "button { padding: 1px 4px; min-height: 0; min-width: 0; } .palette-swatch { padding: 0; border-width: 0; border-radius: 0; } .swatch-overlay-label { text-shadow: none; }"
 	_ = app.css.LoadFromData(css)
 	if screen, err := gdk.ScreenGetDefault(); err == nil && screen != nil {
 		gtk.AddProviderForScreen(screen, app.css, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -441,28 +463,41 @@ func (app *App) setButtonIcon(btn *gtk.Button, iconName string) {
 	if err != nil || img == nil {
 		return
 	}
+	if label, err := btn.GetLabel(); err == nil && strings.TrimSpace(label) != "" {
+		btn.SetTooltipText(label)
+		btn.SetLabel("")
+	}
 	btn.SetImage(img)
 	btn.SetAlwaysShowImage(true)
 }
 
 func (app *App) newSwatchCard() SwatchCard {
 	button, _ := gtk.ButtonNew()
-	button.SetSizeRequest(170, 185)
+	button.SetSizeRequest(166, 138)
 
-	vbox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 4)
-	vbox.SetMarginTop(4)
-	vbox.SetMarginBottom(4)
-	vbox.SetMarginStart(4)
-	vbox.SetMarginEnd(4)
+	vbox, _ := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	vbox.SetMarginTop(1)
+	vbox.SetMarginBottom(1)
+	vbox.SetMarginStart(1)
+	vbox.SetMarginEnd(1)
+
+	overlay, _ := gtk.OverlayNew()
+	overlay.SetHExpand(true)
+	overlay.SetVExpand(true)
 
 	image, _ := gtk.ImageNew()
 	image.SetFromPixbuf(solidPixbuf("#000000", cardImageW, cardImageH))
-	vbox.PackStart(image, false, false, 0)
+	overlay.Add(image)
 
 	label, _ := gtk.LabelNew("")
 	label.SetJustify(gtk.JUSTIFY_CENTER)
 	label.SetHAlign(gtk.ALIGN_CENTER)
-	vbox.PackStart(label, false, false, 0)
+	label.SetVAlign(gtk.ALIGN_CENTER)
+	if ctx, err := label.GetStyleContext(); err == nil {
+		ctx.AddClass("swatch-overlay-label")
+	}
+	overlay.AddOverlay(label)
+	vbox.PackStart(overlay, true, true, 0)
 
 	button.Add(vbox)
 
@@ -496,6 +531,8 @@ func (app *App) updateSchemePreview() {
 	for i := 0; i < len(app.swatchCards); i++ {
 		if i >= len(colors) {
 			app.swatchCards[i].hex = ""
+			app.swatchCards[i].rgb = ""
+			app.swatchCards[i].hsv = ""
 			app.swatchCards[i].button.Hide()
 			continue
 		}
@@ -506,10 +543,77 @@ func (app *App) updateSchemePreview() {
 		r := int(math.Round(colors[i].GetRed() * 255))
 		g := int(math.Round(colors[i].GetGreen() * 255))
 		b := int(math.Round(colors[i].GetBlue() * 255))
+		textColor := "#F5F5F5"
+		if luminance(colors[i]) > 0.53 {
+			textColor = "#111111"
+		}
+		rgbText := fmt.Sprintf("rgb(%d, %d, %d)", r, g, b)
+		hsvText := fmt.Sprintf("hsv(%d, %d, %d)", int(h), int(s), int(v))
 		app.swatchCards[i].hex = hex
+		app.swatchCards[i].rgb = rgbText
+		app.swatchCards[i].hsv = hsvText
 		app.swatchCards[i].image.SetFromPixbuf(solidPixbuf(hex, cardImageW, cardImageH))
-		app.swatchCards[i].label.SetText(fmt.Sprintf("%s\nrgb(%d, %d, %d)\nhsv(%d, %d, %d)", hex, r, g, b, int(h), int(s), int(v)))
+		app.swatchCards[i].label.SetMarkup(fmt.Sprintf("<span foreground=\"%s\" size=\"9000\"><b>%s</b>\n%s\n%s</span>", textColor, hex, rgbText, hsvText))
 	}
+}
+
+func (app *App) copyTextToClipboard(text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	clipboard, _ := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	clipboard.SetText(text)
+}
+
+func (app *App) showSwatchContextMenu(cardIdx int, ev *gdk.Event) {
+	if cardIdx < 0 || cardIdx >= len(app.swatchCards) {
+		return
+	}
+	card := app.swatchCards[cardIdx]
+	if card.hex == "" {
+		return
+	}
+	app.showColorContextMenu(card.hex, card.rgb, card.hsv, ev)
+}
+
+func (app *App) showColorContextMenu(hex, rgbText, hsvText string, ev *gdk.Event) {
+	if strings.TrimSpace(hex) == "" {
+		return
+	}
+
+	menu, _ := gtk.MenuNew()
+	copyHex, _ := gtk.MenuItemNewWithLabel("Copy HEX")
+	copyHex.Connect("activate", func() {
+		app.copyTextToClipboard(hex)
+	})
+	menu.Append(copyHex)
+
+	copyHSV, _ := gtk.MenuItemNewWithLabel("Copy HSV")
+	copyHSV.Connect("activate", func() {
+		app.copyTextToClipboard(hsvText)
+	})
+	menu.Append(copyHSV)
+
+	copyRGB, _ := gtk.MenuItemNewWithLabel("Copy RGB (RGV)")
+	copyRGB.Connect("activate", func() {
+		app.copyTextToClipboard(rgbText)
+	})
+	menu.Append(copyRGB)
+
+	menu.ShowAll()
+	menu.PopupAtPointer(ev)
+}
+
+func colorStringsFromHex(hex string) (string, string) {
+	rgba := gdk.NewRGBA()
+	if !rgba.Parse(hex) {
+		return "", ""
+	}
+	r := int(math.Round(rgba.GetRed() * 255))
+	g := int(math.Round(rgba.GetGreen() * 255))
+	b := int(math.Round(rgba.GetBlue() * 255))
+	h, s, v := rgbToHSV(rgba)
+	return fmt.Sprintf("rgb(%d, %d, %d)", r, g, b), fmt.Sprintf("hsv(%d, %d, %d)", int(h), int(s), int(v))
 }
 
 func (app *App) applyHexEntry() {
@@ -645,13 +749,12 @@ func (app *App) onFavoriteSelectionChanged(selection *gtk.TreeSelection) {
 }
 
 func (app *App) populatePaletteGrid() {
-	for {
-		child, err := app.paletteGrid.GetChildAt(0, 0)
-		if err != nil || child == nil {
-			break
+	children := app.paletteGrid.GetChildren()
+	children.Foreach(func(item interface{}) {
+		if widget, ok := item.(*gtk.Widget); ok {
+			app.paletteGrid.Remove(widget)
 		}
-		app.paletteGrid.Remove(child)
-	}
+	})
 
 	colors := paletteByName(app.activePaletteName())
 	cols := 24
@@ -666,6 +769,18 @@ func (app *App) populatePaletteGrid() {
 		img, _ := gtk.ImageNewFromPixbuf(solidPixbuf(hex, 16, 11))
 		btn.Add(img)
 		h := hex
+		btn.Connect("button-press-event", func(_ *gtk.Button, ev *gdk.Event) bool {
+			if ev == nil {
+				return false
+			}
+			evBtn := gdk.EventButtonNewFromEvent(ev)
+			if evBtn == nil || evBtn.Button() != 3 {
+				return false
+			}
+			rgbText, hsvText := colorStringsFromHex(h)
+			app.showColorContextMenu(h, rgbText, hsvText, ev)
+			return true
+		})
 		btn.Connect("clicked", func() {
 			rgba := gdk.NewRGBA()
 			if rgba.Parse(h) {
@@ -925,19 +1040,102 @@ func generateScheme(base *gdk.RGBA, schemeName string) []*gdk.RGBA {
 
 func paletteByName(name string) []string {
 	switch name {
-	case "Tango":
-		return []string{
-			"#2E3436", "#555753", "#888A85", "#BABDB6", "#D3D7CF", "#EEEEEC",
-			"#FCE94F", "#EDD400", "#C4A000", "#8AE234", "#73D216", "#4E9A06",
-			"#729FCF", "#3465A4", "#204A87", "#AD7FA8", "#75507B", "#5C3566",
-			"#EF2929", "#CC0000", "#A40000", "#FCAF3E", "#F57900", "#CE5C00",
+	case "Web-safe (legacy)":
+		vals := []int{0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF}
+		colors := make([]string, 0, 216)
+		for _, r := range vals {
+			for _, g := range vals {
+				for _, b := range vals {
+					colors = append(colors, fmt.Sprintf("#%02X%02X%02X", r, g, b))
+				}
+			}
 		}
-	case "Visibone Core":
+		return colors
+	case "Material Design":
 		return []string{
-			"#000000", "#333333", "#666666", "#999999", "#CCCCCC", "#FFFFFF",
-			"#FF0000", "#FF9900", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF",
-			"#9900FF", "#FF00FF", "#FF0066", "#663300", "#CC6633", "#99CC33",
-			"#6699CC", "#CC33CC", "#CC9999", "#33CCCC", "#336699", "#9966CC",
+			"#F44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3",
+			"#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39",
+			"#FFEB3B", "#FFC107", "#FF9800", "#FF5722", "#795548", "#9E9E9E",
+			"#607D8B", "#000000", "#FFFFFF", "#EF5350", "#EC407A", "#AB47BC",
+			"#7E57C2", "#5C6BC0", "#42A5F5", "#29B6F6", "#26C6DA", "#26A69A",
+			"#66BB6A", "#9CCC65", "#D4E157", "#FFEE58", "#FFCA28", "#FFA726",
+			"#FF7043", "#8D6E63", "#BDBDBD", "#78909C", "#212121", "#FAFAFA",
+			"#C62828", "#AD1457", "#6A1B9A", "#4527A0", "#283593", "#1565C0",
+		}
+	case "Tailwind CSS":
+		return []string{
+			"#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16", "#22C55E",
+			"#10B981", "#14B8A6", "#06B6D4", "#0EA5E9", "#3B82F6", "#6366F1",
+			"#8B5CF6", "#A855F7", "#D946EF", "#EC4899", "#F43F5E", "#64748B",
+			"#DC2626", "#EA580C", "#D97706", "#CA8A04", "#65A30D", "#16A34A",
+			"#059669", "#0D9488", "#0891B2", "#0284C7", "#2563EB", "#4F46E5",
+			"#7C3AED", "#9333EA", "#C026D3", "#DB2777", "#E11D48", "#475569",
+			"#991B1B", "#9A3412", "#92400E", "#854D0E", "#3F6212", "#14532D",
+			"#064E3B", "#134E4A", "#164E63", "#075985", "#1E3A8A", "#312E81",
+		}
+	case "Flat UI":
+		return []string{
+			"#1ABC9C", "#16A085", "#2ECC71", "#27AE60", "#3498DB", "#2980B9",
+			"#9B59B6", "#8E44AD", "#34495E", "#2C3E50", "#F1C40F", "#F39C12",
+			"#E67E22", "#D35400", "#E74C3C", "#C0392B", "#ECF0F1", "#BDC3C7",
+			"#95A5A6", "#7F8C8D", "#52B3D9", "#E8F8F5", "#D5F4E6", "#D6EAF8",
+			"#E8DAEF", "#FADBD8", "#F9E79F", "#FAD7A0", "#F5B7B1", "#D7DBDD",
+		}
+	case "Pastel":
+		return []string{
+			"#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF", "#E0BBE4",
+			"#FFDFD3", "#FEC8D8", "#D5AAFF", "#B4F8C8", "#A0E7E5", "#FFAEBC",
+			"#FBE7C6", "#B4F8C8", "#A0C4FF", "#BDB2FF", "#FFC6FF", "#FDFFB6",
+			"#CAFFBF", "#9BF6FF", "#A0C4FF", "#BDB2FF", "#FFC6FF", "#FFFFFC",
+			"#FFD6A5", "#FDFFB6", "#CAFFBF", "#A8E6CF", "#FFD3B6", "#FFAAA5",
+		}
+	case "Nord":
+		return []string{
+			"#2E3440", "#3B4252", "#434C5E", "#4C566A", "#D8DEE9", "#E5E9F0",
+			"#ECEFF4", "#8FBCBB", "#88C0D0", "#81A1C1", "#5E81AC", "#BF616A",
+			"#D08770", "#EBCB8B", "#A3BE8C", "#B48EAD", "#4C566A", "#434C5E",
+			"#3B4252", "#2E3440", "#ECEFF4", "#E5E9F0", "#D8DEE9", "#88C0D0",
+		}
+	case "Dracula":
+		return []string{
+			"#282A36", "#44475A", "#F8F8F2", "#6272A4", "#8BE9FD", "#50FA7B",
+			"#FFB86C", "#FF79C6", "#BD93F9", "#FF5555", "#F1FA8C", "#21222C",
+			"#191A21", "#6272A4", "#B45BCF", "#4D4F68", "#626483", "#62D6E8",
+			"#EA51B2", "#EBFF87", "#00F769", "#B45BCF", "#7081D0", "#A1EFE4",
+		}
+	case "Solarized":
+		return []string{
+			"#002B36", "#073642", "#586E75", "#657B83", "#839496", "#93A1A1",
+			"#EEE8D5", "#FDF6E3", "#B58900", "#CB4B16", "#DC322F", "#D33682",
+			"#6C71C4", "#268BD2", "#2AA198", "#859900", "#002B36", "#073642",
+			"#586E75", "#657B83", "#839496", "#93A1A1", "#EEE8D5", "#FDF6E3",
+		}
+	case "Gruvbox":
+		return []string{
+			"#282828", "#CC241D", "#98971A", "#D79921", "#458588", "#B16286",
+			"#689D6A", "#A89984", "#928374", "#FB4934", "#B8BB26", "#FABD2F",
+			"#83A598", "#D3869B", "#8EC07C", "#EBDBB2", "#FBF1C7", "#3C3836",
+			"#504945", "#665C54", "#7C6F64", "#D65D0E", "#FE8019", "#BDAE93",
+		}
+	case "One Dark":
+		return []string{
+			"#282C34", "#ABB2BF", "#E06C75", "#D19A66", "#E5C07B", "#98C379",
+			"#56B6C2", "#61AFEF", "#C678DD", "#BE5046", "#3B4048", "#4B5263",
+			"#545862", "#565C64", "#5C6370", "#636D83", "#828997", "#2C323C",
+			"#353B45", "#3E4451", "#4F5666", "#5F697A", "#6B7587", "#979EAB",
+		}
+	case "Monokai":
+		return []string{
+			"#272822", "#F8F8F2", "#F92672", "#E6DB74", "#A6E22E", "#66D9EF",
+			"#AE81FF", "#FD971F", "#75715E", "#49483E", "#3E3D32", "#F8F8F0",
+			"#F5F4F1", "#A59F85", "#FD5FF0", "#F4BF75", "#FFF59D", "#CFCFC2",
+			"#A1EFE4", "#FFE792", "#CC6633", "#778899", "#9D550F", "#E69F66",
+		}
+	case "KiJiSH Dark Pastel Terminal":
+		return []string{
+			"#2C2C2C", "#DCDCDC", "#3F3F3F", "#D67979", "#60B48A", "#DFAF8F",
+			"#9AB8D7", "#DC8CC3", "#8CD0D3", "#DCDCDC", "#709080", "#DCA3A3",
+			"#72D5A3", "#F0DFAF", "#94BFF3", "#EC93D3", "#93E0E3", "#FFFFFF",
 		}
 	default:
 		vals := []int{0x00, 0x33, 0x66, 0x99, 0xCC, 0xFF}
