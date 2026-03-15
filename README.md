@@ -2,7 +2,7 @@
 
 # kjagave 
 
-a color picker inspired by agave, but only with the features I actually used
+a GTK3 color scheme generator inspired by classic Agave, rewritten in Go
 
 <img width="554" height="467" alt="recent screenshot" src="https://github.com/user-attachments/assets/efbea3f0-9d1f-45b1-865b-bb82a3ddc443" /><br>
 
@@ -11,12 +11,22 @@ a color picker inspired by agave, but only with the features I actually used
 
 ## features
 
-- visual color picker with rgb/hsv sliders
-- **pick colors from anywhere on screen (only on x11 because I'm lazy)**
-- alpha channel support
-- save and manage favorite colors
-- copy hex color codes to clipboard
-- clean, minimal interface
+- Agave-style scheme generator with:
+	- Triads
+	- Complements
+	- Split Complements
+	- Tetrads
+	- Analogous
+	- Monochromatic
+- large scheme preview cards showing hex, rgb, and hsv
+- lighten, darken, saturate, desaturate quick actions
+- color history navigation (back/forward)
+- random color generation
+- palette browser with built-in web-safe, tango, and visibone-style sets
+- favorites panel with add/remove/clear
+- favorites export to GIMP `.gpl` (`~/.config/kjagave-favorites.gpl`)
+- clipboard copy/paste for hex colors
+- screen picker support on X11 (`xcolor` or `grabc`)
 
 ## requirements
 
@@ -53,12 +63,10 @@ go build -o kjagave main.go
 
 ## usage
 
-1. use the color picker button to open the full color selection dialog
-2. **click "Pick from Screen" to grab a color from anywhere on your screen** - your cursor will change to a crosshair, click on any pixel to select its color
-3. click "Copy to Clipboard" to copy the hex color code
-4. click "Save..." to save the current color to your favorites list
-5. expand "Saved Colors" to view and manage your saved colors
-6. select a saved color to load it in the picker
-7. click "Delete" to remove a selected saved color
+1. pick a base color with the color button, hex entry, palette list, or screen picker
+2. choose a scheme type from the combo box
+3. click any preview card to promote that scheme color to the active base color
+4. use toolbar actions (`Back`, `Forward`, `Random`, `Lighten`, `Darken`, `Saturate`, `Desaturate`, `Paste`) to iterate quickly
+5. add colors to favorites with `+`, remove with `-`, and export favorites with `Export GPL`
 
-saved colors are stored in `~/.config/kjagave.json` as json.
+state and favorites are stored in `~/.config/kjagave.json`.
