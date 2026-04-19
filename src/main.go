@@ -382,6 +382,12 @@ func (app *App) createUI() {
 	app.clearFavBtn, _ = gtk.ButtonNewWithLabel("Clear")
 	app.setButtonIcon(app.clearFavBtn, "edit-clear")
 	app.clearFavBtn.Connect("clicked", func() {
+		if len(app.savedColors) == 0 {
+			return
+		}
+		if !app.confirmClearFavorites() {
+			return
+		}
 		app.savedColors = nil
 		app.refreshFavoritesView()
 		app.saveConfig()
@@ -497,6 +503,7 @@ func (app *App) newSwatchCard() SwatchCard {
 		ctx.AddClass("swatch-overlay-label")
 	}
 	overlay.AddOverlay(label)
+	overlay.SetOverlayPassThrough(label, true)
 	vbox.PackStart(overlay, true, true, 0)
 
 	button.Add(vbox)
@@ -818,6 +825,20 @@ func (app *App) removeSelectedFavorite() {
 	app.selectedIter = nil
 	app.refreshFavoritesView()
 	app.saveConfig()
+}
+
+func (app *App) confirmClearFavorites() bool {
+	dialog := gtk.MessageDialogNew(
+		app.window,
+		gtk.DIALOG_MODAL,
+		gtk.MESSAGE_QUESTION,
+		gtk.BUTTONS_YES_NO,
+		"Clear all favorite colors?",
+	)
+	dialog.SetTitle("Confirm Clear")
+	defer dialog.Destroy()
+
+	return dialog.Run() == gtk.RESPONSE_YES
 }
 
 func (app *App) renameSelectedFavorite() {
