@@ -4,7 +4,7 @@
 
 GoLang rewrite of Agave (legacy colorscheme designer tool for GNOME2) with a modern GTK3 interface and additional features.
 
-![screenshot of kjagave](./pics/readme-greeter-20260315-1309.png)
+![screenshot of kjagave](https://kj-media.online/pics/readme-greeter-20260315-1309/readme-greeter-20260315-1309.png)
 
 ## features
 
