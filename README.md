@@ -1,4 +1,4 @@
-![kjagave logo](./archlinux/kjagave.png)
+![kjagave logo](https://kj-media.online/pics/kjagave/kjagave.png)
 
 # kjagave 
 
